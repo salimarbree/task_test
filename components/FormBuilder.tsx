@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useDrag, useDrop } from "react-dnd";
 
 interface FormElement {
   id: string;
@@ -12,6 +11,8 @@ interface FormElement {
 export default function FormBuilder() {
   const [elements, setElements] = useState<FormElement[]>([]);
   const [formName, setFormName] = useState("My Form");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   const addElement = (type: FormElement["type"]) => {
     const newElement: FormElement = {
@@ -21,6 +22,30 @@ export default function FormBuilder() {
       required: false,
     };
     setElements([...elements, newElement]);
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: formName, elements }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save form");
+
+      const data = await res.json();
+      setMessage(`✅ Form saved successfully! (ID: ${data.id})`);
+      setElements([]); // optional: clear builder after save
+    } catch (error: any) {
+      console.error(error);
+      setMessage("❌ Failed to save form.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,7 +69,12 @@ export default function FormBuilder() {
 
         {/* Form Preview */}
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-bold mb-6">{formName}</h2>
+          <input
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            className="text-2xl font-bold mb-6 w-full border-b p-2 focus:outline-none"
+          />
+
           <div className="space-y-4">
             {elements.map((element) => (
               <div key={element.id} className="border rounded-lg p-4">
@@ -75,13 +105,19 @@ export default function FormBuilder() {
 
           {elements.length === 0 && (
             <div className="text-center py-12 text-gray-500">
-              Drag and drop elements from the sidebar to build your form
+              Add elements from the sidebar to build your form
             </div>
           )}
 
-          <button className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg">
-            Save Form
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+          >
+            {loading ? "Saving..." : "Save Form"}
           </button>
+
+          {message && <p className="mt-4 text-sm text-gray-600">{message}</p>}
         </div>
       </div>
     </div>
